@@ -1,3 +1,6 @@
+This fork from arbor.js mainly adds the functionality of using fabric.js to draw the canvas vs using built in arbor macros or 
+using raw HTML5 canvas apis.  Update is done to main.js in docs/sample-project.
+
 arbor.js
 --------
 
