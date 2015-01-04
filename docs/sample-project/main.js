@@ -8,7 +8,8 @@
 
   var Renderer = function(canvas){
     var canvas = $(canvas).get(0)
-    var ctx = canvas.getContext("2d");
+    //var ctx = canvas.getContext("2d");
+	var fabricCanvas = new fabric.StaticCanvas('viewport');
     var particleSystem
 
     var that = {
@@ -26,6 +27,17 @@
         // the new dimensions
         particleSystem.screenSize(canvas.width, canvas.height) 
         particleSystem.screenPadding(80) // leave an extra 80px of whitespace per side
+		
+		//ctx.fillStyle = "white"
+        //ctx.fillRect(0,0, canvas.width, canvas.height)
+		
+		fabricCanvas.add(new fabric.Rect({
+			left: 0, 
+			top: 0, 
+			fill: 'white',
+			width: canvas.width,
+			height: canvas.height
+		}));
         
         // set up some event handlers to allow for node-dragging
         that.initMouseHandling()
@@ -41,8 +53,8 @@
         // which allow you to step through the actual node objects but also pass an
         // x,y point in the screen's coordinate system
         // 
-        ctx.fillStyle = "white"
-        ctx.fillRect(0,0, canvas.width, canvas.height)
+        //ctx.fillStyle = "white"
+        //ctx.fillRect(0,0, canvas.width, canvas.height)
         
         particleSystem.eachEdge(function(edge, pt1, pt2){
           // edge: {source:Node, target:Node, length:#, data:{}}
@@ -50,22 +62,83 @@
           // pt2:  {x:#, y:#}  target position in screen coords
 
           // draw a line from pt1 to pt2
-          ctx.strokeStyle = "rgba(0,0,0, .333)"
-          ctx.lineWidth = 1
-          ctx.beginPath()
-          ctx.moveTo(pt1.x, pt1.y)
-          ctx.lineTo(pt2.x, pt2.y)
-          ctx.stroke()
+          // ctx.strokeStyle = "rgba(0,0,0, .333)"
+          // ctx.lineWidth = 1
+          // ctx.beginPath()
+          // ctx.moveTo(pt1.x, pt1.y)
+          // ctx.lineTo(pt2.x, pt2.y)
+          // ctx.stroke()
+		  var w = 30;
+		  //size of pointer
+		  var pullBack = 20;
+		  var line;
+		  var tip;
+		  if (edge.data == undefined || edge.data.line == undefined){
+				if (edge.data == undefined) edge.data = {};
+				line = new fabric.Line(
+					[pt1.x, pt1.y, pt2.x, pt2.y],
+					{stroke: 'red',
+					strokeWidth:1,
+					strokeDashArray : [4, 8]});
+				tip = new fabric.Path('M -10 5 L 0 0 L -10 -5 z');
+				var angle = Math.atan2(pt2.y - pt1.y, pt2.x - pt1.x);
+				var top = pt2.y - pullBack * Math.sin(angle);
+				var left = pt2.x - pullBack * Math.cos(angle);
+				tip.set({fill: 'black', left:left, top:top, angle: angle * 180 / Math.PI, originX:'center', originY:'center'});
+			}
+			else {
+				line = edge.data.line;
+				tip = edge.data.tip;
+				fabricCanvas.remove(line);
+				fabricCanvas.remove(tip);
+				line.set({
+					x1: pt1.x,
+					y1: pt1.y,
+					x2: pt2.x,
+					y2: pt2.y,
+				});
+				var angle = Math.atan2(pt2.y - pt1.y, pt2.x - pt1.x);
+				var top = pt2.y - pullBack * Math.sin(angle);
+				var left = pt2.x - pullBack * Math.cos(angle);
+				tip.set({fill: 'black', left:left, top:top, angle: angle * 180 / Math.PI, originX:'center', originY:'center'});
+			}
+		  edge.data.line = line;
+		  edge.data.tip = tip;
+		  fabricCanvas.add(line);
+		  fabricCanvas.add(tip);
         })
 
         particleSystem.eachNode(function(node, pt){
           // node: {mass:#, p:{x,y}, name:"", data:{}}
           // pt:   {x:#, y:#}  node position in screen coords
 
-          // draw a rectangle centered at pt
-          var w = 10
-          ctx.fillStyle = (node.data.alone) ? "orange" : "black"
-          ctx.fillRect(pt.x-w/2, pt.y-w/2, w,w)
+          // draw a rectangle centred at pt
+			var w = 30
+			var fabGroup;
+			if (node.data.fabGroup == undefined){
+				var text = new fabric.Text(node.data.text, {
+					fontSize: 30,
+					originX: 'center',
+					originY: 'center'});		  
+				var rect = new fabric.Rect({
+					fill: node.data.alone ? 'orange' : 'cyan',
+					width:w,
+					height:w,
+					originX: 'center',
+					originY: 'center'});
+				fabGroup = new fabric.Group([  rect, text ], {
+					left: pt.x - w/2, 
+					top: pt.y - w/2});
+			}
+			else {
+				fabGroup = node.data.fabGroup;
+				fabricCanvas.remove(fabGroup);
+				fabGroup.set({
+					left: pt.x - w/2, 
+					top: pt.y - w/2});
+			}
+			node.data.fabGroup = fabGroup;
+			fabricCanvas.add(fabGroup);
         })    			
       },
       
@@ -130,26 +203,51 @@
     sys.renderer = Renderer("#viewport") // our newly created renderer will have its .init() method called shortly by sys...
 
     // add some nodes to the graph and watch it go...
-    sys.addEdge('a','b')
-    sys.addEdge('a','c')
-    sys.addEdge('a','d')
-    sys.addEdge('a','e')
-    sys.addNode('f', {alone:true, mass:.25})
+    // sys.addEdge('a','b')
+    // sys.addEdge('a','c')
+    // sys.addEdge('a','d')
+    // sys.addEdge('a','e')
+    // sys.addNode('f', {alone:true, mass:.25})
 
     // or, equivalently:
     //
-    // sys.graft({
-    //   nodes:{
-    //     f:{alone:true, mass:.25}
-    //   }, 
-    //   edges:{
-    //     a:{ b:{},
-    //         c:{},
-    //         d:{},
-    //         e:{}
-    //     }
-    //   }
-    // })
+    sys.graft({
+      nodes:{
+        f:{alone:true, mass:.25, text:'f'},
+		a: { text:'a'},
+		b: { text:'b'},
+		c: { text:'c'},
+		d: { text:'d'},
+		e: { text:'e'},
+		g: { text:'g'},
+		h: { text:'h'},
+		i: { text:'i'},
+		j: { text:'j'},
+		k: { text:'k'},
+      }, 
+      edges:{
+        a:{ b:{},
+            c:{},
+            d:{},
+            e:{},
+			      g:{},
+            h:{},
+            i:{},
+            j:{},
+			      k:{},
+          },
+		    b:{ 
+            c:{},
+            d:{},
+            e:{},
+			      g:{},
+            h:{},
+            i:{},
+            j:{},
+			      k:{},
+          },
+      }
+    })
     
   })
 
